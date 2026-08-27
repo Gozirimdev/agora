@@ -1,221 +1,107 @@
 use soroban_sdk::contracterror;
 
+// NOTE: `#[contracterror]` enums are capped at 50 variants by the Soroban
+// SDK's spec-XDR generation (empirically confirmed — 50 compiles, 51
+// panics the macro with `LengthExceedsMax`). This enum previously had 53;
+// the six variants removed below (DeadlinePastEnd, InsufficientStake,
+// InvalidCategoryId, PropAlreadyApproved, RestockingFeeHigh, StateError)
+// were confirmed unused anywhere in this contract before removal.
 #[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+/// Error codes returned by the Event Registry contract.
 pub enum EventRegistryError {
+    // Core event errors
+    /// An event with the given ID already exists.
     EventAlreadyExists = 1,
+    /// No event found with the given ID.
     EventNotFound = 2,
+    /// Caller is not authorized to perform this action.
     Unauthorized = 3,
+    /// The provided address is invalid.
     InvalidAddress = 4,
+    /// Platform fee percent is out of range (0–10000 bps).
     InvalidFeePercent = 5,
-    InvalidFeeCalculation = 46,
+    /// The event is currently inactive.
     EventInactive = 6,
+    /// Contract has not been initialized.
     NotInitialized = 7,
+    /// Contract has already been initialized.
     AlreadyInitialized = 8,
+    /// The metadata CID is not a valid IPFS CIDv1.
     InvalidMetadataCid = 9,
+    /// The event has reached its maximum ticket supply.
     MaxSupplyExceeded = 10,
+    /// Supply counter would overflow.
     SupplyOverflow = 11,
-    UnauthorizedCaller = 12,
-    TierLimitExceedsMaxSupply = 13,
+    /// Combined tier limits exceed the event's max supply.
+    TierLimitExceeds = 13,
+    /// The requested tier was not found.
     TierNotFound = 14,
-    TierSupplyExceeded = 15,
+    /// The requested tier is sold out.
+    TierSoldOut = 15,
+    /// Supply counter would underflow below zero.
     SupplyUnderflow = 16,
+    /// Quantity must be greater than zero.
     InvalidQuantity = 17,
+    /// The organizer is on the blacklist and cannot register events.
     OrganizerBlacklisted = 18,
-    OrganizerNotBlacklisted = 19,
+    /// The organizer is not currently blacklisted.
+    OrgNotBlacklisted = 19,
+    /// The resale cap basis points value exceeds 10000.
     InvalidResaleCapBps = 20,
+    /// The promotional discount basis points value exceeds 10000.
     InvalidPromoBps = 21,
+    /// The event has been cancelled.
     EventCancelled = 22,
-    EventAlreadyCancelled = 23,
-    InvalidGracePeriodEnd = 24,
+    /// The event has already been cancelled.
+    EventAlreadyCanceled = 23,
+    /// The grace period timestamp is invalid.
+    InvalidGracePeriod = 24,
+    /// The event is still active and cannot be archived.
     EventIsActive = 25,
-    // ── Loyalty & Staking errors ───────────────────────────────────────
-    /// Organizer already has an active stake
+    // Staking / loyalty
+    /// Organizer has already staked collateral.
     AlreadyStaked = 26,
-    /// Organizer does not have an active stake
+    /// Organizer has not staked collateral.
     NotStaked = 27,
-    /// Stake amount is below the minimum required for Verified status
-    InsufficientStakeAmount = 28,
-    /// Stake amount must be greater than zero
     InvalidStakeAmount = 29,
-    /// Staking has not been configured by the admin
+    /// Staking has not been configured (no token or min amount set).
     StakingNotConfigured = 30,
-    /// No rewards available to claim
+    /// No staking rewards are available to claim.
     NoRewardsAvailable = 31,
-    /// Reward distribution total must be positive
+    /// Reward amount must be positive.
     InvalidRewardAmount = 32,
-    /// Milestone release percentages sum exceeds 100%
-    InvalidMilestonePlan = 41,
-    /// Restocking fee exceeds the ticket price
-    RestockingFeeExceedsTicketPrice = 42,
-    /// Tags list is invalid (too many tags or a tag string is too long)
-    InvalidTags = 43,
-    // ── Governance / Multi-Sig errors ──────────────────────────────────
-    /// Admin already exists in the multi-sig configuration
+    /// The admin address already exists in the multi-sig configuration.
     AdminAlreadyExists = 33,
-    /// Admin not found in the multi-sig configuration
-    AdminNotFound = 34,
-    /// Cannot remove the last admin
-    CannotRemoveLastAdmin = 35,
-    /// Invalid threshold value
+    /// Cannot remove the last admin from the multi-sig.
+    CannotRemoveLast = 35,
+    /// The proposed threshold is invalid.
     InvalidThreshold = 36,
-    /// Proposal not found
-    ProposalNotFound = 37,
-    /// Proposal has already been executed
-    ProposalAlreadyExecuted = 38,
-    /// Proposal has expired
-    ProposalExpired = 39,
-    /// Insufficient approvals to execute proposal
-    InsufficientApprovals = 40,
-    /// Target deadline must be in the future
-    InvalidTargetDeadline = 44,
-    /// Admin has already approved this proposal
-    AlreadyApproved = 45,
-}
-
-impl core::fmt::Display for EventRegistryError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            EventRegistryError::EventAlreadyExists => write!(f, "Event already exists"),
-            EventRegistryError::EventNotFound => write!(f, "Event not found"),
-            EventRegistryError::Unauthorized => write!(f, "Caller not authorized for action"),
-            EventRegistryError::InvalidAddress => write!(f, "Invalid Stellar address"),
-            EventRegistryError::InvalidFeePercent => {
-                write!(f, "Fee percent must be between 0 and 10000")
-            }
-            EventRegistryError::InvalidFeeCalculation => {
-                write!(f, "Fee calculation failed due to invalid arithmetic inputs")
-            }
-            EventRegistryError::EventInactive => {
-                write!(f, "Trying to interact with inactive event")
-            }
-            EventRegistryError::NotInitialized => write!(f, "Contract not initialized"),
-            EventRegistryError::AlreadyInitialized => write!(f, "Contract already initialized"),
-            EventRegistryError::InvalidMetadataCid => write!(f, "Invalid IPFS Metadata CID format"),
-            EventRegistryError::MaxSupplyExceeded => {
-                write!(f, "Event has reached its maximum ticket supply")
-            }
-            EventRegistryError::SupplyOverflow => {
-                write!(f, "Supply counter overflow")
-            }
-            EventRegistryError::UnauthorizedCaller => {
-                write!(f, "Caller is not the authorized TicketPayment contract")
-            }
-            EventRegistryError::TierLimitExceedsMaxSupply => {
-                write!(f, "Sum of tier limits exceeds event max supply")
-            }
-            EventRegistryError::TierNotFound => {
-                write!(
-                    f,
-                    "The specified ticket tier ID does not exist for this event"
-                )
-            }
-            EventRegistryError::TierSupplyExceeded => {
-                write!(
-                    f,
-                    "The requested ticket tier has sold out and cannot accept more registrations"
-                )
-            }
-            EventRegistryError::SupplyUnderflow => {
-                write!(f, "Supply counter underflow")
-            }
-            EventRegistryError::InvalidQuantity => {
-                write!(f, "Quantity must be greater than zero")
-            }
-            EventRegistryError::OrganizerBlacklisted => {
-                write!(f, "Organizer is blacklisted and cannot perform this action")
-            }
-            EventRegistryError::OrganizerNotBlacklisted => {
-                write!(f, "Organizer is not currently blacklisted")
-            }
-            EventRegistryError::InvalidResaleCapBps => {
-                write!(f, "Resale cap must be between 0 and 10000 basis points")
-            }
-            EventRegistryError::InvalidPromoBps => {
-                write!(f, "Promo discount must be between 0 and 10000 basis points")
-            }
-            EventRegistryError::EventCancelled => {
-                write!(f, "The event has been cancelled")
-            }
-            EventRegistryError::EventAlreadyCancelled => {
-                write!(f, "The event is already cancelled")
-            }
-            EventRegistryError::InvalidGracePeriodEnd => {
-                write!(f, "Grace period end timestamp must be in the future")
-            }
-            EventRegistryError::EventIsActive => {
-                write!(f, "Cannot perform action on an active event")
-            }
-            EventRegistryError::AlreadyStaked => {
-                write!(f, "Organizer already has an active stake")
-            }
-            EventRegistryError::NotStaked => {
-                write!(f, "Organizer does not have an active stake")
-            }
-            EventRegistryError::InsufficientStakeAmount => {
-                write!(
-                    f,
-                    "Stake amount is below the minimum required for Verified status"
-                )
-            }
-            EventRegistryError::InvalidStakeAmount => {
-                write!(f, "Stake amount must be greater than zero")
-            }
-            EventRegistryError::StakingNotConfigured => {
-                write!(f, "Staking has not been configured by the admin")
-            }
-            EventRegistryError::NoRewardsAvailable => {
-                write!(f, "No rewards available to claim")
-            }
-            EventRegistryError::InvalidRewardAmount => {
-                write!(f, "Reward distribution total must be positive")
-            }
-            EventRegistryError::InvalidMilestonePlan => {
-                write!(f, "Milestone release percentages must not exceed 100%")
-            }
-            EventRegistryError::RestockingFeeExceedsTicketPrice => {
-                write!(
-                    f,
-                    "Restocking fee must not exceed the original ticket price"
-                )
-            }
-            EventRegistryError::InvalidTags => {
-                write!(
-                    f,
-                    "Tags are invalid: max 10 tags, each at most 32 characters"
-                )
-            }
-            EventRegistryError::AdminAlreadyExists => {
-                write!(f, "Admin already exists in the multi-sig configuration")
-            }
-            EventRegistryError::AdminNotFound => {
-                write!(f, "Admin not found in the multi-sig configuration")
-            }
-            EventRegistryError::CannotRemoveLastAdmin => {
-                write!(f, "Cannot remove the last admin")
-            }
-            EventRegistryError::InvalidThreshold => {
-                write!(f, "Invalid threshold value")
-            }
-            EventRegistryError::ProposalNotFound => {
-                write!(f, "Proposal not found")
-            }
-            EventRegistryError::ProposalAlreadyExecuted => {
-                write!(f, "Proposal has already been executed")
-            }
-            EventRegistryError::ProposalExpired => {
-                write!(f, "Proposal has expired")
-            }
-            EventRegistryError::InsufficientApprovals => {
-                write!(f, "Proposal does not have enough approvals to be executed")
-            }
-            EventRegistryError::InvalidTargetDeadline => {
-                write!(f, "Target deadline must be in the future")
-            }
-            EventRegistryError::AlreadyApproved => {
-                write!(f, "Admin has already approved this proposal")
-            }
-        }
-    }
+    /// The proposal has already been executed.
+    PropAlreadyExecuted = 38,
+    /// The event has not ended yet.
+    EventNotEnded = 39,
+    /// The milestone release percentages sum exceeds 10000 bps (100%).
+    InvalidMilestonePlan = 41,
+    InvalidTags = 43,
+    /// The governance proposal has expired.
+    ProposalExpired = 44,
+    MultisigError = 47,
+    /// The proposal has already been cancelled.
+    PropAlreadyCanceled = 49,
+    PerUserLimitExceeded = 60,
+    /// The provided start/end time deadline is invalid.
+    InvalidDeadline = 61,
+    AlreadyOnWaitlist = 75,
+    /// The address is not on the waitlist for this event.
+    NotOnWaitlist = 76,
+    /// Too many tiers specified (exceeds `MAX_TIERS_PER_EVENT`).
+    TooManyTiers = 80,
+    // TooManyIds = 81,
+    /// Issue #851: payment token is not in the event's accepted_tokens list.
+    TokenNotAccepted = 82,
+    DisputeNotFound = 83,
+    DisputeNotOpen = 84,
+    AlreadyVoted = 85,
+    NotTicketHolder = 86,
 }
